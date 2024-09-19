@@ -26,9 +26,9 @@ mkdir <- function( x ) {
 ### Load in XGBoost results
 load( 'res.Rdata' )
 
-### Geometric Median of bootstrapped Shapley values
+### Geometric Median of Shapley values
 # Construct a 2x2 matrix 
-shap_mat <- pivot_wider( res$bootstrap_results$all_shaps, id_cols = 'boot_ind', 
+shap_mat <- pivot_wider( res$repeated_results$all_shaps, id_cols = 'boot_ind', 
                          names_from = c('obs_ind', 'variable'), values_from = 'shap' )[, -1]
 
 # Compute geometric median
@@ -99,10 +99,10 @@ s_plot_trunc <- shap.plot.summary2( shap_long_trunc ) + theme( text = element_te
                                                               legend.title = element_text(size = 14),
                                                               axis.title.x = element_text(size = 20),
                                                               )
-### Re-draw bootstrapped Shapley value ranks to better fit the paper
+### Re-draw Shapley value ranks to better fit the paper
 vars <- unique(shap_long_trunc$variable) %>% as.vector %>% rev
-shap_ranks <- res$bootstrap_results$shap_ranks
-B <- length( res$bootstrap_results$all_fits )
+shap_ranks <- res$repeated_results$shap_ranks
+B <- length( res$repeated_results$all_fits )
 shap_ranks_long <- data.frame( var = rep(colnames(shap_ranks), each = B), 
                                rank = unlist(as.data.frame(shap_ranks)) ) %>%
   filter( var %in% vars )
@@ -120,33 +120,33 @@ png( 'Ridge_Box_Comparison.png', height = 500, width = 900 )
 ggarrange( shap_joy, shap_box, nrow = 1, ncol = 2 )
 dev.off()
 
-png( 'Bootstrapped_Shaps.png', height = 600, width = 1000 )
+png( 'Repeated_Shaps.png', height = 600, width = 1000 )
 ggarrange( shap_joy, s_plot_trunc, nrow = 1, ncol = 2 )
 dev.off()
 
-png( 'Bootstrapped_Quantile_Shaps_Trunc.png', height = 600, width = 1000 )
+png( 'Repeated_Quantile_Shaps_Trunc.png', height = 600, width = 1000 )
 print( s_plot_trunc )
 dev.off()
 
-png( 'Bootstrapped_Rank_Distributions.png', height = 600, width = 1000 )
+png( 'Repeated_Rank_Distributions.png', height = 600, width = 1000 )
 print( shap_joy )
 dev.off()
 
 # How often ranked in the top 10
-top10 <- apply( res$bootstrap_results$shap_ranks, 2, function(x) { mean(x < 10) } ) %>% 
+top10 <- apply( res$repeated_results$shap_ranks, 2, function(x) { mean(x < 10) } ) %>% 
   sort( decreasing = TRUE ) %>% print
 plot( top10, type = 'h', xaxt = 'n', xlab = '', ylab = '' )
 axis( 1, at = 1:length(top10), las = 2, labels = names(top10) )
 abline( h = 0.3, lty = 2 )
 
 # How often ranked above random noise
-rn_pos <- res$bootstrap_results$shap_ranks[, 'random_num']
+rn_pos <- res$repeated_results$shap_ranks[, 'random_num']
 above_noise_fun <- function( x ) {
   (x <= rn_pos) %>% mean
 }
-apply( res$bootstrap_results$shap_ranks, 2, above_noise_fun ) %>% sort( decreasing = TRUE ) %>% print
+apply( res$repeated_results$shap_ranks, 2, above_noise_fun ) %>% sort( decreasing = TRUE ) %>% print
 
-### Bootstrapped ROC curves
+### ROC curves
 # Function for interpolating ROC coordinates
 inter_coords <- function( y, len = 500 ) {
   
@@ -181,7 +181,7 @@ plot_cols <- function( x, y ) {
   do.call( 'cbind', cols )
 }
 
-# Function for computing bootstrapped ROC confidence intervals
+# Function for computing ROC confidence intervals
 roc_ci <- function( x, col_poly ) {
   
   roc_comps <- c( 'FPR', 'Sensitivity' )
@@ -202,33 +202,34 @@ roc_ci <- function( x, col_poly ) {
 }
 
 # Create interpolated ROC curves
-train_rocs <- lapply( res$bootstrap_results$train_rocs, inter_coords )
-test_rocs <- lapply( res$bootstrap_results$test_rocs, inter_coords )
+train_rocs <- lapply( res$repeated_results$train_rocs, inter_coords )
+test_rocs <- lapply( res$repeated_results$test_rocs, inter_coords )
 
 train_ci <- roc_ci( train_rocs )
 test_ci <- roc_ci( test_rocs )
 
 boot_roc <- ggplot( train_ci$median_curve, aes(FPR, Sensitivity) ) + geom_line( col = mycol[1] ) +
   #geom_polygon( data = train_ci$poly_curve1, aes(FPR, Sensitivity), fill = mycol[1], alpha = 0.1 ) +
+  geom_segment( x = 0, y = 0, xend = 1, yend = 1, linetype = "dashed" ) +
   geom_polygon( data = train_ci$poly_curve2, aes(FPR, Sensitivity), fill = mycol[1], alpha = 0.3 ) +
   geom_line( data = test_ci$median_curve, aes(FPR, Sensitivity), col = mycol[2] ) +
   #geom_polygon( data = test_ci$poly_curve1, aes(FPR, Sensitivity), fill = mycol[2], alpha = 0.1 ) +
   geom_polygon( data = test_ci$poly_curve2, aes(FPR, Sensitivity), fill = mycol[2], alpha = 0.3 ) +
-  ggtitle( 'Bootstrapped ROC Curves' ) + geom_text(aes(0.5, 1, label = 'Train'), col = mycol[1], size = 7) + 
+  ggtitle( 'ROC Curves' ) + geom_text(aes(0.5, 1, label = 'Train'), col = mycol[1], size = 7) + 
   geom_text(aes(0.8, 0.5, label = 'Test'), col = mycol[2], size = 7) + theme( text = element_text(size = 15) )
 
 name_lab <- c( 'Train', 'Test' )
-all_auc_long <- pivot_longer( as.data.frame(res$bootstrap_results$auc), cols = all_of(name_lab) )
+all_auc_long <- pivot_longer( as.data.frame(res$repeated_results$auc), cols = all_of(name_lab) )
 all_auc_long$name <- factor( all_auc_long$name, levels = name_lab )
 boot_auc <- ggplot( all_auc_long, aes(name, value) ) + geom_boxplot( fill = mycol ) + ylim(0, 1) +
   geom_hline( yintercept = 0.5, linetype = 'dashed', col = 'darkgrey' ) + ylab( 'AUC' ) + xlab( '' ) +
-  ggtitle( 'Bootstrapped AUC' ) + theme( text = element_text(size = 15) )
+  ggtitle( 'AUC' ) + theme( text = element_text(size = 15) )
 
-png( 'Bootstrapped_ROC.png', height = 600, width = 1000 )
+png( 'Repeated_ROC.png', height = 600, width = 1000 )
 ggarrange( boot_roc, boot_auc, ncol = 2, nrow = 1 )
 dev.off()
 
-png( 'Bootstrapped_ROC_band.png', height = 600, width = 1000 )
+png( 'Repeated_ROC_band.png', height = 600, width = 1000 )
 print( boot_roc )
 dev.off()
 
@@ -322,11 +323,11 @@ parnames_concat <- concat_fun( parnames )
 lapply( parnames, CV_var_rel )
 lapply( parnames_concat, CV_var_rel )
 
-### Bootstrapped Heat Maps to Analyse Consistency
+### Heat Maps to Analyse Consistency
 mkdir( 'Heatmaps' )
 
 all_vars <- unique(shap_long$variable) %>% as.vector
-all_shaps <- res$bootstrap_results$all_shaps
+all_shaps <- res$repeated_results$all_shaps
 all_shaps_val_list <- split( all_shaps$shap, all_shaps$variable )
 all_shaps_val_list <- all_shaps_val_list[all_vars]
 all_shaps_val <- do.call( 'cbind', all_shaps_val_list ) %>% as.data.frame
@@ -354,7 +355,7 @@ for ( i in 1:N ) {
   if ( length(unique(hm_dat$val)) == 1 ) { next }
   
   hm <- ggplot( hm_dat, aes(obs_ind, boot_ind, fill = val) ) + geom_tile() +
-    xlab('Observation Rank') + ylab( 'Bootstrap Index' ) + 
+    xlab('Observation Rank') + ylab( 'Repetition Index' ) + 
     ggtitle( paste0( cn, ' Shapley Value Heatmap' ) ) + 
     theme(legend.position="bottom") + 
     scale_fill_gradient('Shapley Value', low="#FFCC33", high="#6600CC", 

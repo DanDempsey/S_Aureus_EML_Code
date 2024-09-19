@@ -1,4 +1,4 @@
-##### Model fits using bootstrapping
+##### Model fits
 ##### Daniel Dempsey
 
 ### Read in libraries
@@ -193,7 +193,7 @@ fit_fun <- function( X, y, param_grid, model_mode = 1, num_folds = 10, B = 1000,
                       chosen_parameters = best_params, best_param_ind = best_ind,
                       param_grid = all_param_grid, X = X, y = y )
   
-  # Bootstrap settings and initialization
+  # Settings and initialization
   train_prop <- 0.8
   ncol_x <- ncol( X )
   nrow_x <- nrow( X )
@@ -214,7 +214,7 @@ fit_fun <- function( X, y, param_grid, model_mode = 1, num_folds = 10, B = 1000,
                            obs_ind = 0, train_ind = rep(c(rep(1, train_num), rep(0, test_num)), B), 
                            pred = 0, true_val = 0 )
   
-  # Run bootstrap
+  # Run Repitiions
   for ( i in 1:B ) {
     
     # Split into training / test sets
@@ -278,24 +278,24 @@ fit_fun <- function( X, y, param_grid, model_mode = 1, num_folds = 10, B = 1000,
   all_preds$true_lab <- factor( tru_val_lab[all_preds$true_val + 1], tru_val_lab )
   all_preds$train_lab <- factor( rev(train_val_lab)[all_preds$train_ind + 1], train_val_lab )
   
-  png( 'Bootstrapped_Predictions.png' )
+  png( 'Repeated_Predictions.png' )
   all_preds_plot <- ggplot( all_preds, aes( true_lab, pred, fill = train_lab ) ) + 
     geom_boxplot( ) + scale_fill_manual( values = mycol, name = '' ) +
-    ylim(0, 1) + ggtitle( 'Bootstraped Predictions' ) + ylab( 'Prediction' ) + xlab( '' )
+    ylim(0, 1) + ggtitle( 'Predictions' ) + ylab( 'Prediction' ) + xlab( '' )
   print( all_preds_plot )
   dev.off()
   
-  png( 'Bootstrapped_AUC.png' )
+  png( 'Repeated_AUC.png' )
   all_auc_long <- pivot_longer( as.data.frame(all_auc), cols = all_of(train_val_lab) )
   all_auc_long$name <- factor( all_auc_long$name, levels = train_val_lab )
   boot_auc <- ggplot( all_auc_long, aes(name, value) ) + geom_boxplot( fill = mycol ) + ylim(0, 1) +
     geom_hline( yintercept = 0.5, linetype = 'dashed', col = 'darkgrey' ) + ylab( 'AUC' ) + xlab( '' ) +
-    ggtitle( 'Bootstrapped AUC' )
+    ggtitle( 'AUC' )
   print( boot_auc )
   dev.off()
   
   # Shapley ranks plot
-  png( 'Bootstrap_Shap_Ranks.png' )
+  png( 'Repeated_Shap_Ranks.png' )
   long_shap <- data.frame( var = rep(colnames(shap_ranks), each = B), 
                            rank = unlist(as.data.frame(shap_ranks)) )
   long_shap$var <- factor( long_shap$var, levels = colnames(shap_ranks)[order(rank_medians, decreasing = TRUE)] )
@@ -306,12 +306,12 @@ fit_fun <- function( X, y, param_grid, model_mode = 1, num_folds = 10, B = 1000,
   dev.off()
   
   # Save and return results
-  bootstrap_results <- list( all_fits = all_fits, auc = all_auc, avg_shaps = avg_shaps, 
-                             all_shaps = all_shaps, shap_ranks = shap_ranks, 
-                             all_preds = all_preds, all_train_inds = all_train_inds,
-                             train_rocs = train_rocs, test_rocs = test_rocs )
+  repeated_results <- list( all_fits = all_fits, auc = all_auc, avg_shaps = avg_shaps, 
+                            all_shaps = all_shaps, shap_ranks = shap_ranks, 
+                            all_preds = all_preds, all_train_inds = all_train_inds,
+                            train_rocs = train_rocs, test_rocs = test_rocs )
   
-  res <- list( cv_results = cv_results, bootstrap_results = bootstrap_results )
+  res <- list( cv_results = cv_results, repeated_results = repeated_results )
   save( res, file = 'res.Rdata' )
   setwd( '..' )
   
