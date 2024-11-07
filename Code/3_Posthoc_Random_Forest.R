@@ -139,7 +139,7 @@ boot_roc <- ggplot( train_ci$median_curve, aes(FPR, Sensitivity) ) + geom_line( 
   geom_line( data = test_ci$median_curve, aes(FPR, Sensitivity), col = mycol[2] ) +
   #geom_polygon( data = test_ci$poly_curve1, aes(FPR, Sensitivity), fill = mycol[2], alpha = 0.1 ) +
   geom_polygon( data = test_ci$poly_curve2, aes(FPR, Sensitivity), fill = mycol[2], alpha = 0.3 ) +
-  ggtitle( 'ROC Curves' ) + geom_text(aes(0.5, 1, label = 'Train'), col = mycol[1], size = 7) + 
+  ggtitle( '' ) + geom_text(aes(0.5, 1, label = 'Train'), col = mycol[1], size = 7) + 
   geom_text(aes(0.8, 0.5, label = 'Test'), col = mycol[2], size = 7)
 
 name_lab <- c( 'Train', 'Test' )

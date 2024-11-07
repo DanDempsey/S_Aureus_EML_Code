@@ -215,7 +215,7 @@ boot_roc <- ggplot( train_ci$median_curve, aes(FPR, Sensitivity) ) + geom_line( 
   geom_line( data = test_ci$median_curve, aes(FPR, Sensitivity), col = mycol[2] ) +
   #geom_polygon( data = test_ci$poly_curve1, aes(FPR, Sensitivity), fill = mycol[2], alpha = 0.1 ) +
   geom_polygon( data = test_ci$poly_curve2, aes(FPR, Sensitivity), fill = mycol[2], alpha = 0.3 ) +
-  ggtitle( 'ROC Curves' ) + geom_text(aes(0.5, 1, label = 'Train'), col = mycol[1], size = 7) + 
+  ggtitle( '' ) + geom_text(aes(0.5, 1, label = 'Train'), col = mycol[1], size = 7) + 
   geom_text(aes(0.8, 0.5, label = 'Test'), col = mycol[2], size = 7) + theme( text = element_text(size = 15) )
 
 name_lab <- c( 'Train', 'Test' )
@@ -232,6 +232,51 @@ dev.off()
 png( 'Repeated_ROC_band.png', height = 600, width = 1000 )
 print( boot_roc )
 dev.off()
+
+# Median AUC
+train_auc <- filter( all_auc_long, name == 'Train' ) %>% .[[2]]
+test_auc <- filter( all_auc_long, name == 'Test' ) %>% .[[2]]
+
+quantile( train_auc, probs = 0.5 ) # 0.763
+quantile( test_auc, probs = 0.5 ) # 0.56
+
+t.test( train_auc, mu = 0.5 ) # CI: (0.762, 0.766)
+t.test( test_auc, mu = 0.5 ) # CI: (0.554, 0.565)
+
+### AUC association with SHAPs
+mkdir( 'AUC_SHAP' )
+setwd( 'AUC_SHAP' )
+
+# Top 10%
+top_auc_cutoff <- quantile( res$repeated_results$auc[, 2], probs = 0.9 )
+top_inds <- which( res$repeated_results$auc[, 2] >= top_auc_cutoff )
+top_shaps <- res$repeated_results$shap_ranks[top_inds, ] %>% as.data.frame
+sapply( top_shaps, mean ) %>% sort
+
+# Bottom 10%
+bottom_auc_cutoff <- quantile( res$repeated_results$auc[, 2], probs = 0.1 )
+bottom_inds <- which( res$repeated_results$auc[, 2] <= bottom_auc_cutoff )
+bottom_shaps <- res$repeated_results$shap_ranks[bottom_inds, ] %>% as.data.frame
+sapply( bottom_shaps, mean ) %>% sort
+
+# Plot differences in histograms
+xlim <- range( res$repeated_results$shap_ranks )
+
+for ( i in 1:ncol(top_shaps) ) {
+  
+  nm <- names( top_shaps )[i]
+  dens_top <-  density( top_shaps[[i]] )
+  dens_bottom <- density( bottom_shaps[[i]] )
+  
+  png( paste0('AUC_SHAP_', nm, '.png') )
+  plot( dens_top, main = nm, xlab = '', ylab = '', xlim = xlim, ylim = range(dens_top$y, dens_bottom$y),
+        col = 'dodgerblue' )
+  lines( dens_bottom, col = 'orange' )
+  dev.off()
+  
+}
+
+setwd( '..' )
 
 ### Cross Validation Analysis
 mkdir( 'CV_plots' )
@@ -367,15 +412,15 @@ for ( i in 1:N ) {
   
 }
 
-### Violin plots of top 10 variables
-num_top <- 10
+### Violin plots of top 5 variables
+num_top <- 5
 top_vars <- unique( shap_long$variable )[1:num_top] %>% as.vector
 top_dat <- X[, top_vars] %>% as.data.frame %>% cbind( Exposure = as.factor(res$cv_results$y) )
 
 group_cols <- mycol
 use_cols <- group_cols[ match( top_dat$Exposure, c( 1, 0 ) ) ]
 
-exposed_labs <- c('Non-Exposed', 'Exposed')
+exposed_labs <- c('No Previous Exposure', 'Previous Exposure')
 top_dat$Exposure_lab <- factor( exposed_labs[as.numeric(top_dat$Exposure)], levels = exposed_labs )
 
 vio_plot_fun <- function( z ) {
@@ -390,7 +435,7 @@ vio_plot_fun <- function( z ) {
   ggplot(top_dat, aes(x = Exposure_lab, y = get(z))) +
     geom_violin(alpha = 0.3, size = 0.1, fill = 'grey', col = 'grey') +
     geom_sina( aes(x = Exposure_lab, y = get(z), color = use_cols), method = "counts", maxwidth = 0.7, 
-               alpha = 0.7 ) + theme(legend.position = "none", text = element_text(size = 18)) + 
+               alpha = 0.7 ) + theme(legend.position = "none", text = element_text(size = 20)) + 
     ggtitle( nm ) + ylab( '' ) + xlab( '' )
   
 }
@@ -399,7 +444,7 @@ set.seed( 1 ) # To ensure the random jitter is reproducible
 vio_plots <- lapply( top_vars, vio_plot_fun )
 
 png( paste0('Top_Violins.png'), height = 1000, width = 1400 )
-ggarrange( plotlist = vio_plots, ncol = 5, nrow = 2 )
+ggarrange( plotlist = vio_plots, ncol = 3, nrow = 2 )
 dev.off()
 
 ### Create tables for clinical variables

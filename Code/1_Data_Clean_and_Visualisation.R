@@ -129,9 +129,15 @@ dat_reduced$random_num <- abs(10*rnorm(nrow(dat_reduced)))
 
 ### Correlation matrix of current data
 cor_mat_raw <- cor( select( dat_reduced, -c(Exposure, StudyNo) ),  use = 'complete.obs' )
+cor_mat_reversed <- cor_mat_raw[, nrow(cor_mat_raw):1 ]
+
+pro_name_change <- gsub( 'Div', 'Pro', colnames(cor_mat_raw) )
+colnames( cor_mat_reversed ) <- rev( pro_name_change )
+rownames( cor_mat_reversed ) <- pro_name_change
 
 png( 'Output/Data_Visualisations/Correlation_Matrix_Raw.png', height = 900, width = 900 )
-cor_mat_raw_plot <- ggcorrplot( cor_mat_raw, colors = c("#FFCC33", "#FFFFFF", "#6600CC") ) + 
+cor_mat_raw_plot <- ggcorrplot( cor_mat_reversed, colors = c("#FFCC33", "#FFFFFF", "#6600CC") ) + 
+  scale_y_discrete() +
   theme( plot.margin = unit(c(0, 0, 0, 0), 'centimeters') ) + 
   theme(plot.title = element_text(vjust = 3, size = 30))
 print( cor_mat_raw_plot )
@@ -203,7 +209,7 @@ for ( i in 1:length(PCA_list) ) {
 }
 
 final_dat <- select( dat_reduced, -all_of(PCA_vars) )
-dim( final_dat ) # 180 x 39
+dim( final_dat ) # 180 x 39 (including StudyNo and response variable)
 
 ### Final adjustment: change column name to remove hyphen as this causes glitches in imputation code
 ncm_ind <- which( colnames(final_dat) == 'Non-Classical Monocytes' )
